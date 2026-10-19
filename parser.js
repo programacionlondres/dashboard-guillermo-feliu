@@ -109,7 +109,7 @@
       if (partida === "OBRA" && filaObra < 0 && sinNivel) { filaObra = r; }
       if (filaObra >= 0) {
         if (partida === "OBRA" || MACROS.indexOf(partida) >= 0) {
-          resumen[partida] = { peso: partida === "OBRA" ? 1 : round(num(cell(r, K.peso))), real: series(r, 0), prog: series(r, 2) };
+          resumen[partida] = { peso: partida === "OBRA" ? 1 : round(num(cell(r, K.peso))), real: series(r, 0), prog: series(r, 2), fila: r + 1 };
         }
         continue;
       }
@@ -135,6 +135,7 @@
     if (filaObra < 0 || !resumen.OBRA) throw new Error("No se encontró la fila resumen 'OBRA' al final de 'Gantt Control'.");
     MACROS.forEach(function (m) { if (!resumen[m]) throw new Error("Falta la fila resumen '" + m + "'."); });
     if (formato === "B") filas = nivelesFormatoB(filas);
+    var correccionProg = corregirProgramado(grid, cell, semanas, colsSem, resumen);
     return {
       version: 1,
       formato: formato,
@@ -147,8 +148,45 @@
       terminoObra: serialToISO(cell(K.finObra[0], K.finObra[1])),
       semanas: semanas,
       resumen: resumen,
+      correccionProg: correccionProg,
       filas: filas
     };
+  }
+
+  // Algunas planillas traen en las filas resumen un programado en 0 para las primeras semanas porque la
+  // fórmula BUSCARH de esas columnas quedó desfasada (apunta a otra fila). El programado correcto está en la
+  // tabla diaria de programado del mismo Gantt (fila 5 con fechas día a día, a la derecha de las semanas).
+  // Se identifica la fila de esa tabla que coincide EXACTAMENTE con el programado de la fila resumen en todas
+  // las semanas que sí lo traen, y solo entonces se completan las semanas en 0. Si no hay coincidencia exacta, no se toca nada.
+  function corregirProgramado(grid, cell, semanas, colsSem, resumen) {
+    var fila5 = grid[4] || [], c0 = -1, fechas = [];
+    var desde = colsSem[colsSem.length - 1] + 5;
+    for (var c = desde; c < fila5.length; c++) {
+      var v = cell(4, c);
+      if (typeof v === "number" && v > 20000 && v < 80000 && (fechas.length === 0 || v > fechas[fechas.length - 1])) {
+        if (c0 < 0) c0 = c;
+        if (c - c0 !== fechas.length) break;
+        fechas.push(v);
+      } else if (c0 >= 0) break;
+    }
+    if (fechas.length < 30) return null;
+    var finSem = semanas.map(function (iso) { return Math.floor(Date.parse(iso) / 86400000) + 25569 + 6; });
+    function idx(d) { var lo = 0, hi = fechas.length - 1, ans = -1; while (lo <= hi) { var m = (lo + hi) >> 1; if (fechas[m] <= d) { ans = m; lo = m + 1; } else hi = m - 1; } return ans; }
+    var pos = finSem.map(idx), out = {};
+    Object.keys(resumen).forEach(function (k) {
+      var s = resumen[k], conDato = [], ceros = [];
+      s.prog.forEach(function (p, j) { if (p > 0) conDato.push(j); else ceros.push(j); });
+      if (conDato.length < 3 || !ceros.length) return;
+      for (var r = 0; r < grid.length; r++) {
+        var ok = conDato.every(function (j) { return pos[j] >= 0 && Math.abs(num(cell(r, c0 + pos[j])) - s.prog[j]) < 1e-6; });
+        if (!ok) continue;
+        var fijadas = [];
+        ceros.forEach(function (j) { var v = pos[j] >= 0 ? round(num(cell(r, c0 + pos[j]))) : 0; if (v > 0) { s.prog[j] = v; fijadas.push(j); } });
+        if (fijadas.length) out[k] = { filaTabla: r + 1, semanas: fijadas.length, desde: semanas[fijadas[0]], hasta: semanas[fijadas[fijadas.length - 1]] };
+        break;
+      }
+    });
+    return Object.keys(out).length ? out : null;
   }
 
   function parseWorkbook(XLSX, data, fuente) {

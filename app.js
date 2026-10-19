@@ -157,7 +157,9 @@
 
   function renderCurvas() {
     var c = MODEL.c, o = DATA.resumen.OBRA, pO = progResumen(o), pd = MODEL.obra.progDesde;
-    $("notaCurva").textContent = pd > 0 ? "(el Gantt trae programado de obra desde la semana del " + fdate(parseISO(DATA.semanas[pd])) + ")" : "";
+    var cp = DATA.correccionProg && DATA.correccionProg.OBRA;
+    $("notaCurva").textContent = pd > 0 ? "(el Gantt trae programado de obra desde la semana del " + fdate(parseISO(DATA.semanas[pd])) + ")" :
+      cp ? "(programado hasta la semana del " + fdate(parseISO(cp.hasta)) + " tomado de la tabla diaria del Gantt, fila " + cp.filaTabla + ", porque la fila resumen lo traía en 0)" : "";
     grafico("chCurva", {
       type: "line",
       data: { labels: DATA.semanas.map(function (s) { return fdate(parseISO(s)); }),
