@@ -78,7 +78,7 @@
       real: real, prog: prog, dif: prog === null ? null : real - prog,
       semReal: c > 0 ? real - o.real[c - 1] : real,
       semProg: prog === null ? null : c > 0 ? (pO[c - 1] === null ? null : prog - pO[c - 1]) : prog,
-      ritmo4: ritmo4, req: semRest > 0 ? (1 - real) / semRest : 1 - real,
+      ritmo4: ritmo4, req: semRest > 0 ? (1 - real) / semRest : 1 - real, vencido: semRest <= 0 && real < 0.9995,
       proy: ritmo4 > 0 ? addDays(finSem, Math.floor((1 - real) / ritmo4 * 7)) : null,
       spi: prog > 0 ? real / prog : null, termino: termObra, progDesde: primerProg(o, D.resumen)
     };
@@ -139,7 +139,8 @@
       kpi("Avance semana", pct(o.semReal, 2), o.semProg === null ? "programado sin dato" : "programado " + pct(o.semProg, 2), o.semProg === null ? "" : o.semReal >= o.semProg ? "bueno" : "malo") +
       kpi("SPI", o.spi === null ? "–" : nf2.format(o.spi), "real / programado", o.spi >= 1 ? "bueno" : "malo") +
       kpi("Ritmo últ. 4 semanas", o.ritmo4 === null ? "–" : pct(o.ritmo4, 2), "% de obra por semana") +
-      kpi("Ritmo requerido", pct(o.req, 2), "para terminar el " + fdate(o.termino), o.ritmo4 !== null && o.req > o.ritmo4 ? "malo" : "bueno") +
+      (o.vencido ? kpi("Ritmo requerido", "Vencido", "término Gantt " + fdate(o.termino) + " · falta " + pct(1 - o.real), "malo") :
+        kpi("Ritmo requerido", pct(o.req, 2), "para terminar el " + fdate(o.termino), o.ritmo4 !== null && o.req > o.ritmo4 ? "malo" : "bueno")) +
       kpi("Proyección término", o.proy ? fdate(o.proy) : "–", "al ritmo de las últimas 4 semanas", o.proy && o.termino && o.proy > o.termino ? "malo" : "bueno");
   }
 
@@ -151,7 +152,8 @@
       (o.dif === null ? "• Avance real <b>" + pct(o.real) + "</b>. El Gantt no trae avance programado de obra para esta semana. Esta semana avanzó " + pct(o.semReal, 2) + ".<br>" :
       "• La obra va <b>" + (o.dif >= 0 ? "adelantada " : "atrasada ") + nf1.format(Math.abs(o.dif * 100)) + " pts</b> (" + pct(o.real) + " real vs " + pct(o.prog) +
       " programado). Esta semana avanzó " + pct(o.semReal, 2) + (o.semProg === null ? "" : " vs " + pct(o.semProg, 2) + " programado") + ".<br>") +
-      (o.ritmo4 === null ? "" : "• Ritmo de las últimas 4 semanas: <b>" + pct(o.ritmo4, 2) + "/sem</b>. Para terminar en la fecha del Gantt se requiere " + pct(o.req, 2) + "/sem" + (alc ? ": el ritmo actual alcanza." : ": <b>hay que acelerar</b>.") + "<br>") +
+      (o.ritmo4 === null ? "" : o.vencido ? "• Ritmo de las últimas 4 semanas: <b>" + pct(o.ritmo4, 2) + "/sem</b>. El término del Gantt (" + fdate(o.termino) + ") <b>ya pasó</b> y falta " + pct(1 - o.real) + (o.proy ? "; a este ritmo se terminaría el " + fdate(o.proy) : "") + ".<br>" :
+        "• Ritmo de las últimas 4 semanas: <b>" + pct(o.ritmo4, 2) + "/sem</b>. Para terminar en la fecha del Gantt se requiere " + pct(o.req, 2) + "/sem" + (alc ? ": el ritmo actual alcanza." : ": <b>hay que acelerar</b>.") + "<br>") +
       "• Partidas" + (state.frente === "Todos" ? "" : " de " + esc(state.frente)) + ": <b>" + n("Atrasada") + "</b> atrasadas, <b>" + n("Detenida") +
       "</b> detenidas (≥3 semanas sin avance), <b>" + n("No iniciada (atrasada)") + "</b> que debían iniciar y no lo han hecho.";
   }
@@ -160,7 +162,8 @@
     var c = MODEL.c, o = DATA.resumen.OBRA, pO = progResumen(o), pd = MODEL.obra.progDesde;
     var cp = DATA.correccionProg && DATA.correccionProg.OBRA;
     $("notaCurva").textContent = pd > 0 ? "(el Gantt trae programado de obra desde la semana del " + fdate(parseISO(DATA.semanas[pd])) + ")" :
-      cp ? "(programado hasta la semana del " + fdate(parseISO(cp.hasta)) + " tomado de la tabla diaria del Gantt, fila " + cp.filaTabla + ", porque la fila resumen lo traía en 0)" : "";
+      cp && cp.hasta ? "(programado hasta la semana del " + fdate(parseISO(cp.hasta)) + " tomado de la tabla diaria del Gantt, fila " + cp.filaTabla + ", porque la fila resumen lo traía en 0)" :
+      cp && cp.finalCompletado ? "(las últimas " + cp.finalCompletado + " semanas del Gantt no traen programado; se mantiene el 100%)" : "";
     grafico("chCurva", {
       type: "line",
       data: { labels: DATA.semanas.map(function (s) { return fdate(parseISO(s)); }),
@@ -228,18 +231,19 @@
     $("tblCategorias").innerHTML = h + (b || '<tr><td colspan=5 class="vacia">Sin categorías para este frente.</td></tr>');
   }
 
-  var COLS_DEC = '<tr><th>N°</th><th class=izq>Partida</th><th class=izq>Frente</th><th>Real / Total</th><th>% Real</th><th>% Prog.</th><th>Dif.</th><th>Ritmo 4 sem</th><th>Ritmo req.</th><th>Sem. sin av.</th><th>Impacto pts</th><th>Inicio</th><th>Término</th><th>Estado</th></tr>';
+  var COLS_DEC = '<tr><th>N°</th><th class=izq>Partida</th><th class=izq>Frente</th><th>Real</th><th>Programado</th><th>% Real</th><th>% Prog.</th><th>Dif.</th><th>Ritmo 4 sem</th><th>Ritmo req.</th><th>Sem. sin av.</th><th>Impacto pts</th><th>Inicio</th><th>Término</th><th>Estado</th></tr>';
+  function cant(v, x) { return x.total > 1 ? (Math.abs(v - Math.round(v)) < 1e-6 ? nf0.format(v) : nf1.format(v)) : pct(Math.min(1, v / x.total), 0); }
   function cantidad(x) { return x.total > 1 ? nf0.format(x.real) + " / " + nf0.format(x.total) : pct(x.pReal, 0); }
   function ritmoTxt(v, x) { return x.total > 1 ? d2(v) : pct(v, 0); }
   function reqTxt(x) { return x.vencida ? '<span class="neg">Vencida</span>' : ritmoTxt(x.req, x); }
   function estadoHtml(e) { return '<span class="estado e-' + e.split(" ")[0] + '">' + e + "</span>"; }
   function filaDec(x, i) {
     return filaTabla([td(i + 1), td('<a href="#" data-fila="' + x.fila + '">' + esc(x.partida) + "</a>", "nombre"), td(esc(x.frente), "izq"),
-      td(cantidad(x)), td(pct(x.pReal, 0)), td(pct(x.pProg, 0)), td(pts(x.dif * 100), cls(x.dif)), td(ritmoTxt(x.ritmo, x)), td(reqTxt(x)),
+      td('<b>' + cant(x.real, x) + '</b>'), td(cant(x.prog, x)), td(pct(x.pReal, 0)), td(pct(x.pProg, 0)), td(pts(x.dif * 100), cls(x.dif)), td(ritmoTxt(x.ritmo, x)), td(reqTxt(x)),
       td(x.sinAv === null ? "–" : x.sinAv), td(nf2.format(x.impacto), cls(x.impacto)), td(fdate(x.inicio)), td(fdate(x.termino)), td(estadoHtml(x.estado))]);
   }
   function tablaDec(id, lista, vacio) {
-    $(id).innerHTML = COLS_DEC + (lista.length ? lista.slice(0, 10).map(filaDec).join("") : '<tr><td colspan=14 class="vacia">' + vacio + "</td></tr>");
+    $(id).innerHTML = COLS_DEC + (lista.length ? lista.slice(0, 10).map(filaDec).join("") : '<tr><td colspan=15 class="vacia">' + vacio + "</td></tr>");
   }
   function renderDecisiones() {
     var f = filtradas(), fin = MODEL.finSem, lim = addDays(fin, 28);
@@ -250,7 +254,7 @@
   }
 
   var COLS_P = [["partida", "Partida", "izq"], ["frente", "Frente", "izq"], ["grupo", "Categoría", "izq"], ["inicio", "Inicio"], ["termino", "Término"],
-    ["total", "Total"], ["real", "Real"], ["pReal", "% Real"], ["pProg", "% Prog."], ["dif", "Dif."], ["semana", "Avance semana"], ["ritmo", "Ritmo 4 sem"],
+    ["real", "Real"], ["prog", "Programado"], ["pReal", "% Real"], ["pProg", "% Prog."], ["dif", "Dif."], ["semana", "Avance semana"], ["ritmo", "Ritmo 4 sem"],
     ["req", "Ritmo req."], ["sinAv", "Sem. sin av."], ["proy", "Proyección"], ["impacto", "Impacto pts"], ["estado", "Estado"]];
   function renderPartidas() {
     var q = state.buscar.toLowerCase(), l = filtradas().filter(function (x) {
@@ -267,7 +271,7 @@
     var h = "<tr>" + COLS_P.map(function (c) { return '<th data-col="' + c[0] + '" class="' + (c[2] || "") + '">' + c[1] + (k === c[0] ? (asc > 0 ? " ▲" : " ▼") : "") + "</th>"; }).join("") + "</tr>";
     $("tblPartidas").innerHTML = h + l.map(function (x) {
       return filaTabla([td('<a href="#" data-fila="' + x.fila + '">' + esc(x.partida) + "</a>", "nombre"), td(esc(x.frente), "izq"), td(esc(x.grupo), "izq"),
-        td(fdate(x.inicio)), td(fdate(x.termino)), td(x.total > 1 ? nf0.format(x.total) : "100%"), td(x.total > 1 ? nf0.format(x.real) : pct(x.pReal, 0)),
+        td(fdate(x.inicio)), td(fdate(x.termino)), td('<b>' + cant(x.real, x) + '</b>'), td(cant(x.prog, x)),
         td(barra(x.pReal)), td(pct(x.pProg, 0)), td(pts(x.dif * 100), cls(x.dif)), td(ritmoTxt(x.semana, x)), td(ritmoTxt(x.ritmo, x)), td(reqTxt(x)),
         td(x.sinAv === null ? "–" : x.sinAv), td(x.proy instanceof Date ? fdate(x.proy) : x.proy), td(nf2.format(x.impacto), cls(x.impacto)), td(estadoHtml(x.estado))]);
     }).join("");
