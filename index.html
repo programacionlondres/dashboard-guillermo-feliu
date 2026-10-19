@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard Guillermo Feliú</title>
+  <title>Dashboard de avance de obra</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="londres.png">
 </head>
@@ -36,12 +36,11 @@
     <button class="tab" data-tab="decisiones">Decisiones</button>
     <button class="tab" data-tab="partidas">Partidas</button>
     <button class="tab" data-tab="detalle">Detalle y comparador</button>
-    <button class="tab" data-tab="actualizar">Actualizar datos</button>
   </nav>
 
   <main>
     <div id="vacio" class="aviso" hidden>
-      No hay datos cargados. Vaya a <b>Actualizar datos</b> y cargue la planilla Gantt semanal (.xlsx).
+      Aún no hay datos publicados para esta obra.
     </div>
 
     <!-- RESUMEN -->
@@ -110,35 +109,11 @@
       </div>
     </section>
 
-    <!-- ACTUALIZAR -->
-    <section id="tab-actualizar" class="panel">
-      <div class="card">
-        <h2>Cargar la planilla Gantt de la semana</h2>
-        <p>Seleccione el archivo .xlsx semanal (el mismo que se envía cada semana). Se lee la hoja <b>Gantt Control</b> directamente en su navegador: el archivo no se sube a ningún servidor.</p>
-        <input type="file" id="archivo" accept=".xlsx,.xlsm">
-        <p id="estadoCarga" class="nota"></p>
-        <button id="btnJson" class="btn" disabled>Descargar avance.json</button>
-      </div>
-      <div class="card">
-        <h2>Publicar la actualización en GitHub (para que todos la vean)</h2>
-        <ol>
-          <li>Cargue arriba el Gantt de la semana y revise que el dashboard se vea bien.</li>
-          <li>Presione <b>Descargar avance.json</b>.</li>
-          <li>En GitHub, entre al repositorio → <b>Add file</b> → <b>Upload files</b> (en la página principal del repositorio, no dentro de una carpeta).</li>
-          <li>Arrastre el archivo <b>avance.json</b> (reemplaza al anterior) y presione <b>Commit changes</b>.</li>
-          <li>En 1 a 2 minutos la página publicada muestra la nueva semana.</li>
-        </ol>
-        <p class="nota">El Gantt contiene toda la historia semanal, por lo que basta con subir el archivo de la última semana; el selector "Semana de control" permite revisar semanas anteriores.</p>
-      </div>
-    </section>
   </main>
 
   <footer id="pie"></footer>
 
   <script src="chart.umd.js"></script>
-  <script src="xlsx.full.min.js"></script>
-  <script src="parser.js"></script>
-  <script>(function(){var f=window.fetch;window.fetch=function(u,o){if(u==="data/avance.json")u="avance.json";return f.call(window,u,o);};})();</script>
   <script src="app.js"></script>
 </body>
 </html>

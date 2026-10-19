@@ -120,6 +120,7 @@
   function renderTodo() {
     MODEL = construir(DATA, state.semana);
     $("titulo").textContent = "Dashboard de avance · " + DATA.obra;
+    document.title = "Dashboard " + DATA.obra;
     $("subtitulo").textContent = "Semana de control: " + fdate(MODEL.inicioSem) + " al " + fdate(MODEL.finSem) +
       " · Término programado: " + fdate(MODEL.obra.termino) + " · " + DATA.casas + " viviendas";
     $("pie").textContent = "Fuente: " + (DATA.fuente || "Gantt Control") + " · Fecha de control del Gantt: " + fdate(parseISO(DATA.fechaControl)) +
@@ -405,7 +406,7 @@
       var csv = [cab].concat(l).map(function (r) { return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(";"); }).join("\r\n");
       descargar(new Blob(["﻿" + csv], { type: "text/csv" }), "partidas_" + DATA.obra.replace(/\s+/g, "_") + ".csv");
     });
-    $("archivo").addEventListener("change", function (e) {
+    if ($("archivo")) $("archivo").addEventListener("change", function (e) {
       var file = e.target.files[0]; if (!file) return;
       $("estadoCarga").textContent = "Procesando " + file.name + "…";
       var rd = new FileReader();
@@ -423,7 +424,7 @@
       };
       rd.readAsArrayBuffer(file);
     });
-    $("btnJson").addEventListener("click", function () {
+    if ($("btnJson")) $("btnJson").addEventListener("click", function () {
       descargar(new Blob([JSON.stringify(DATA)], { type: "application/json" }), "avance.json");
     });
   }
@@ -443,7 +444,7 @@
       .catch(function () {
         $("vacio").hidden = false;
         $("subtitulo").textContent = "Sin datos publicados";
-        document.querySelector('.tab[data-tab="actualizar"]').click();
+        var t = document.querySelector('.tab[data-tab="actualizar"]'); if (t) t.click();
       });
   }
   init();
